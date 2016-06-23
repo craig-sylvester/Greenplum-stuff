@@ -3,7 +3,7 @@
 Included here are several examples of using Window functions in the Greenplum
 database.
 
-Before running the examples, run the setup.sh script to create the demo (default is `window_demo`) schema the examples use and to generate a new `00_init.sql` file. The init SQL file is referenced by all the SQL files to set the search_path (and anything else you may care to add).
+Before running the examples, run the setup.sh script to create the demo schema (default is `window_demo`) the examples use and to generate a new `00_init.sql` file. The init SQL file is referenced by all the SQL files to set the search_path (and anything else you may care to add).
 
 File descriptions:
 * `00_init.sql` : Sets a common env for all SQL scripts
