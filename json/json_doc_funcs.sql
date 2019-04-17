@@ -8,21 +8,19 @@ create function table_exists(tbl varchar)
 returns boolean
 as $$
 
-    status = True
+    DECLARE
+    status int;
+    BEGIN
+        select 1 into status
+        from pg_catalog.pg_tables
+        where tablename = $1 and schemaname = current_schema();
 
-    # Verify that the source table exists
-    sql = """select 1 from pg_catalog.pg_tables
-             where tablename = '{0}'
-               and schemaname = current_schema()""".format(tbl)
-    try:
-        if plpy.execute(sql).nrows() == 0:
-            status = False
-    except ValueError as e:
-        status = False
+        IF NOT FOUND THEN status = 0; END IF;
 
-    return status
+        RETURN status;
+    END
 $$
-language plpythonu
+language plpgsql
 ;
 -- END table_exists
 
@@ -42,7 +40,7 @@ as $$
 
     sql = """create table %s  ( 
                id serial primary key
-               , body jsonb not null
+               , body json not null
                , search tsvector
                , created_at timestamptz default now() not null 
                , updated_at timestamptz default now() not null
@@ -54,7 +52,7 @@ as $$
 
     if status is True:
         sql = """create index idx_{0} on {0}
-                  using GIN(body jsonb_path_ops)""".format(doc_tbl)
+                  using GIN(body json_path_ops)""".format(doc_tbl)
         try:
             plpy.execute(sql)
         except:
@@ -75,12 +73,84 @@ language plpythonu
 -- END pde_create_document_table
 
 /****************************************************************************************
+ * Replace existing JSON document in the document table
+ * Usage: pde_replace_document (<document table>, <id>, <JSON doc>)
+ * Returns: text (status)
+ ****************************************************************************************/
+drop function if exists pde_replace_document (varchar, varchar, text);
+create function pde_replace_document (doc_tbl varchar,
+                                      doc_id varchar,
+                                      doc_text text)
+returns text
+as $$
+    import json
+    import sys
+
+    status = None
+
+    # Check if the documents table exists.
+    rv = plpy.execute("select table_exists('{0}') as status".format(doc_tbl))
+    if rv[0]['status'] is False:
+        status = "Error: Source table {0} does not exist".format(doc_tbl)
+    else:
+        # Verify that we received a JSON string
+        try:
+            doc = json.loads(doc_text)
+        except ValueError as e:
+            status = 'ERROR: ill-formed JSON. Check syntax.\n{0}'.format(e)
+
+
+    if status is None:
+        try:
+            if doc_id <> str(doc['id']):
+                status = 'Error: doc id passed in does not match document'
+            else:
+                sql ="select body->>'id' from {0} where body->>'id' = {1}".format(
+                                    plpy.quote_ident(doc_tbl),
+                                    plpy.quote_literal(doc_id))
+                rv = plpy.execute(sql)
+                if rv.nrows() == 0:
+                    status = 'Document with id = %s not found' % doc_id
+        except Exception as e:
+            status = 'Error: id = {0}\n{1}'.format(doc_id, e)
+
+    if status is None:
+        sql = "select pde_get_search_vector({0}) as sv".format(
+                 plpy.quote_literal(json.dumps(doc)))
+        rv_search = plpy.execute(sql)
+        searchVector = rv_search[0]['sv']
+
+        sql = """update {0}
+                 set body = {1},
+                     search = to_tsvector({2}),
+                     updated_at = now()
+                 where body->>'id'::varchar = {3} returning body""".format(
+                            plpy.quote_ident(doc_tbl),
+                            plpy.quote_literal(json.dumps(doc)),
+                            plpy.quote_literal(searchVector),
+                            plpy.quote_literal(doc_id) )
+        try:
+            rv = plpy.execute(sql)
+            status = 'Replaced document with id = {0}\n{1}'.format(doc_id, rv[0]['body'])
+        except Exception as e:
+            status = 'Error:update:document id = {0}\n{1}'.format(doc_id, e)
+
+
+    return status
+
+$$
+language plpythonu
+;
+-- END pde_replace_document
+
+/****************************************************************************************
  * Save JSON documents to document table
  * Usage: pde_save_documents (<document table>, <list of JSON docs>)
  * Returns: text (number of successful and failed inserts)
  ****************************************************************************************/
 drop function if exists pde_save_documents (varchar, text);
-create function pde_save_documents (doc_tbl varchar, doc_string text)
+create function pde_save_documents (doc_tbl varchar,
+                                    doc_string text)
 returns text
 as $$
     import json
@@ -92,39 +162,28 @@ as $$
     def insert_docs(doc_tbl, theDocs):
 
         success_cnt = 0
-        failure_cnt = 0
         value_list = []
+        MAX_DOCS = 10000  # maximum number of JSON docs allowed for multi-row insert
 
         # Verify that we received a JSON string
         try:
             doc_list = json.loads(theDocs)
         except ValueError as e:
-            return 'ERROR: ill-formed JSON. Check syntax.'
+            return 'ERROR: ill-formed JSON. Check syntax.\n{0}'.format(e)
 
-        # Verify that a Python LIST was passed in
-        if not isinstance(doc_list, list):
-            return 'ERROR: Python LIST of JSON docs expected'
+        if len(doc_list) > MAX_DOCS:
+            return 'ERROR: Number of individual JSON docs in list {1} cannot exceed {0}'.format(MAX_DOCS, len(doc_list))
 
         for doc in doc_list:
-            try:
-                id = doc['id']
-                sql ="select id from {0} where id = {1}".format(plpy.quote_ident(doc_tbl), id)
-                rv = plpy.execute(sql)
-                if rv.nrows() == 0:
-                    id = None
-            except:
-                id = None
+            sql = "select pde_get_search_vector({0}) as sv".format(
+                     plpy.quote_literal(json.dumps(doc)))
+            rv_search = plpy.execute(sql)
+            searchVector = rv_search[0]['sv']
 
-            if id is None:
-                sql = "select pde_get_search_vector({0}) as sv".format(
-                         plpy.quote_literal(json.dumps(doc)))
-                rv_search = plpy.execute(sql)
-                searchVector = rv_search[0]['sv']
-
-                onerow = "({0},to_tsvector({1}))".format(
-                                           plpy.quote_literal(json.dumps(doc)),
-                                           plpy.quote_literal(searchVector))
-                value_list.append(onerow)
+            value_list.append( "({0},to_tsvector({1}))".format(
+                                       plpy.quote_literal(json.dumps(doc)),
+                                       plpy.quote_literal(searchVector))
+                             )
 
         ins_values = ','.join(value_list)
         sql = "insert into {0} (body,search) values {1}".format(
@@ -133,22 +192,8 @@ as $$
         try:
             rv = plpy.execute(sql)
             success_cnt = rv.nrows()
-        except:
-            return 'Insert failed'
-
-            #sql = """update {0}
-            #         set body = {1},
-            #             search = to_tsvector({2}),
-            #             updated_at = now()
-            #         where id = {3} """.format(
-            #                       plpy.quote_ident(doc_tbl),
-            #                       plpy.quote_literal(searchVector),
-            #                       plpy.quote_literal(json.dumps(doc)), id)
-            #try:
-            #    plpy.execute(sql)
-            #    success_cnt = success_cnt + 1
-            #except:
-            #    ''
+        except e:
+            return 'Insert failed: {0}'.format(e)
 
         return '{0} docs inserted/updated'.format(success_cnt)
 
@@ -213,7 +258,7 @@ as $$
             rv_search = plpy.execute(sql)
             searchVector = rv_search[0]['sv']
 
-            onerow = "({0}::jsonb,to_tsvector({1}))".format(
+            onerow = "({0}::json,to_tsvector({1}))".format(
                                        plpy.quote_literal(json.dumps(doc)),
                                        plpy.quote_literal(searchVector))
             value_list.append(onerow)
@@ -331,8 +376,8 @@ language plpythonu
  * Returns: setof text (text of JSON documents found)
  ****************************************************************************************/
 
-drop function if exists pde_find_document(varchar, jsonb, varchar);
-create function pde_find_document(tbl varchar, criteria jsonb, orderby varchar default 'id')
+drop function if exists pde_find_document(varchar, json, varchar);
+create function pde_find_document(tbl varchar, criteria json, orderby varchar default 'id')
 returns setof text
 as $$
     import json
