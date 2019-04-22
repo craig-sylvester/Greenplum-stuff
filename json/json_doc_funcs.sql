@@ -33,40 +33,51 @@ language plpgsql
  * Returns: boolean (success or failure)
  ****************************************************************************************/
 
-drop function if exists pde_create_document_table(varchar, out boolean);
-create function pde_create_document_table(doc_tbl varchar, out boolean)
+drop function if exists pde_create_document_table(varchar, out varchar);
+create function pde_create_document_table(doc_tbl varchar, out varchar)
 as $$
-    status = True
+    import sys
+    status = None
+    tbl_clause = ''
 
-    sql = """create table %s  ( 
-               id serial primary key
-               , body json not null
-               , search tsvector
-               , created_at timestamptz default now() not null 
-               , updated_at timestamptz default now() not null
-               )"""
+    # Add DISTRIBUTED BY clause if running on Greenplum
     try:
-        plpy.execute(sql % doc_tbl)
-    except:
-        status = False
+        rv = plpy.execute('select version()')
+        if 'Greenplum' in rv[0]['version']:
+            tbl_clause = 'distributed by (id)'
+    except Exception as e:
+        status = 'Error: SQL execution error\n%s' % e
 
-    if status is True:
-        sql = """create index idx_{0} on {0}
-                  using GIN(body json_path_ops)""".format(doc_tbl)
+    if status is None:
+        sql = """create table %s  ( 
+                   id serial primary key
+                   , body jsonb not null
+                   , search tsvector
+                   , created_at timestamptz default now() not null 
+                   , updated_at timestamptz default now() not null
+                   ) %s""" % (doc_tbl, tbl_clause)
         try:
             plpy.execute(sql)
-        except:
-            status = False
+        except Exception as e:
+            status = 'Error: CREATE TABLE %s...\n%s' % (doc_tbl, e)
 
-    if status is True:
-        sql = """create index idx_{0}_search on {0}
-                  using GIN(search)""".format(doc_tbl)
+    if status is None:
+        idx = 'idx_%s' % doc_tbl
+        sql = "create index %s on %s using GIN(body jsonb_path_ops)" % (idx, doc_tbl)
         try:
             plpy.execute(sql)
-        except:
-            status = False
+        except Exception as e:
+            status = 'Error: CREATE INDEX %s...\n%s' % (idx, e)
 
-    return status
+    if status is None:
+        idx = 'idx_%s_search' % doc_tbl
+        sql = "create index %s on %s using GIN(search)" % (idx, doc_tbl)
+        try:
+            plpy.execute(sql)
+        except Exception as e:
+            status = 'Error: CREATE INDEX idx_%s_search...\n%s' % (doc_tbl, e)
+
+    return status if status is not None else 'Success: CREATE TABLE %s' % doc_tbl
 $$
 language plpythonu
 ;
