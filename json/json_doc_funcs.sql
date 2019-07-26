@@ -165,6 +165,7 @@ create function pde_save_documents (doc_tbl varchar,
 returns text
 as $$
     import json
+    import sys
 
     #
     # Function: Insert the list of JSON docs into the table provided.
@@ -203,7 +204,7 @@ as $$
         try:
             rv = plpy.execute(sql)
             success_cnt = rv.nrows()
-        except e:
+        except Exception as e:
             return 'Insert failed: {0}'.format(e)
 
         return '{0} docs inserted/updated'.format(success_cnt)
