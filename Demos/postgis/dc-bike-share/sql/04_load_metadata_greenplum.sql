@@ -13,6 +13,7 @@ CREATE TABLE staging (
 truncate staging;
 insert into staging select * from ext_dcbs_system_info;
 
+truncate system_info;
 insert into system_info
 select d.*
 from staging s,
@@ -27,6 +28,7 @@ update system_info
 truncate staging;
 insert into staging select * from ext_dcbs_station_info;
 
+truncate station_info;
 insert into station_info
 select d.*
 from staging s,
@@ -45,6 +47,7 @@ update station_info set location = ST_SETSRID ( ST_MAKEPOINT (lon, lat), 4326 );
 truncate staging;
 insert into staging select * from ext_dcbs_station_status;
 
+truncate station_status;
 insert into station_status
 select d.*
 from staging s,
@@ -59,6 +62,7 @@ update station_status
 truncate staging;
 insert into staging select * from ext_dcbs_system_regions;
 
+truncate system_regions;
 insert into system_regions
 select d.*
 from staging s,
