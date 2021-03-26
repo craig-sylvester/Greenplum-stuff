@@ -15,10 +15,18 @@ Examples of using Window functions in Greenplum.
 
 A set of Python UDFs for adding document management functionality for JSON objects.
 
+## functions
+
+SQL and stored procedures
+
+## utilities
+
+A set of support or testing utilities.
+
 ---
 Product Links
 - Open Source: https://greenplum.org
 - VMware Supported: https://tanzu.vmware.com/greenplum
 - Apache MADlib: http://madlib.apache.org/
-- Geospatial analytics: https://gpdb.docs.pivotal.io/6-8/analytics/postGIS.html
-- Text analytics: https://gpdb.docs.pivotal.io/6-8/analytics/text.html
+- Geospatial analytics: https://gpdb.docs.pivotal.io/latest/analytics/postGIS.html
+- Text analytics: https://gpdb.docs.pivotal.io/latest/analytics/text.html

@@ -23,16 +23,17 @@ BEGIN
         LOCAL_role_info = ' s.role = ''p'' ';
     end if;
 
-    LOCAL_query_txt = format('select s.hostname,
-                                     n.nspname,
-                                     s.datadir || ''/'' || a.fp
-                              from
-                                gp_dist_random(''pg_class'') c
-                                    join pg_namespace n on c.relnamespace = n.oid and c.relname = %L
-                                    join gp_segment_configuration s on s.content = c.gp_segment_id,
-                                (select pg_relation_filepath(%L) fp) a
-                              where %s',
-                             $1, $1, LOCAL_role_info);
+    LOCAL_query_txt = format(
+        'select s.hostname,
+                n.nspname,
+                s.datadir || ''/'' || substring (fp from ''.*/'') || c.relfilenode::text
+         from
+            gp_dist_random(''pg_class'') c
+               join pg_namespace n on c.relnamespace = n.oid and c.relname = %L
+               join gp_segment_configuration s on s.content = c.gp_segment_id,
+            pg_relation_filepath( %L ) fp
+         where %s',
+         $1, $1, LOCAL_role_info);
 
     return query execute LOCAL_query_txt;
 
