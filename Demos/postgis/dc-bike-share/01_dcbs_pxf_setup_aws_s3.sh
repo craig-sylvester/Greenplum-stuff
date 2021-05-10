@@ -16,7 +16,7 @@ This script assumes you have already installed and initialized PXF. If you are r
 Greenplum on a cluster created using VMware's marketplace offerings, you can easily
 install PXF by running 'gpoptional' as administrator (gpadmin).
 If not, refer to the docs below to install PXF (steps 1,2, and 6):
-https://gpdb.docs.pivotal.io/6-7/pxf/instcfg_pxf.html
+https://gpdb.docs.pivotal.io/latest/pxf/instcfg_pxf.html
 
 EOF
 read -p 'Hit ENTER to proceed or CNTL-C to exit'
@@ -55,8 +55,11 @@ cat << EOF > ${S3_SiteFile}
 </configuration>
 EOF
 
-echo pxf cluster sync
-pxf cluster sync
-
-echo pxf cluster start
-pxf cluster start
+pxf cluster status &> /dev/null
+if [[ $? == 0 ]]; then
+    echo pxf cluster sync
+    pxf cluster sync
+else
+    echo pxf cluster start
+    pxf cluster start
+fi

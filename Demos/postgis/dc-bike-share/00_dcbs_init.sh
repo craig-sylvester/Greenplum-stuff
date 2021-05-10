@@ -2,6 +2,8 @@
 
 set -u
 
+[[ ${USER} != "gpadmin" ]] && { echo "This script must be run by gpadmin"; exit 0; }
+
 cat << EOF
 Welcome to the DC Bike Share demo for PostgreSQL and Greenplum!
 The scripts contained in the directory will set up a schema and set of tables
@@ -76,6 +78,12 @@ EOF
 
 chmod +x ${get_metadata_script}
 
+exists=$(psql -At -d $demo_db -c "select 1 from pg_tables where tablename = 'spatial_ref_sys'")
+if [[ $exists <> 1 ]]; then
+    echo "** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION *****"
+    echo "**** PostGIS is not loaded in the database. Install the package before preceding. ****"
+    echo "**************************************************************************************"
+fi
 
 cat << EOF
 

@@ -7,6 +7,7 @@ Usage: perl execute_queries.pl {configuration_filename} {optional_run_nickname}
 
 Components:
 	1. The execute_queries.pl program.
+
 	2. Supporting directories (The base_directory is specified in the
          configuration file discussed further below):
         A. query_output_directory ("$base_dir/query_output/"): This is where
@@ -26,12 +27,14 @@ Components:
                This directory is where the files used in the variable
                substitution are stored. Specify the variable replacement in
                the SQL statement with a comment of this form:
-	/*+VARIABLE_REPLACEMENT_FILENAME=test_vars_1_million_rows__10_columns.dat*/
+	/*+VARIABLE_REPLACEMENT_FILENAME=test_vars_1_million_rows_10_columns.dat*/
         F. Query Directory Tree: This is discussed below. 
+
 	3. The configuration file allows the user to specify information about the
-         queries to be executed, as well as global test parameters. 
-		All parameter names must begin the line. Lines beginning with a '#'
-        are treated as commments. All parameters must be present.
+        queries to be executed, as well as global test parameters. 
+		All parameter names must begin the line.
+        Lines beginning with a '#' are treated as commments.
+        All parameters must be present.
 		A. qd (Query Directory) lines. The user can specify one or more lines
                that contain the following elements:
 			1. The 'qd' line_type identifier.
@@ -42,28 +45,31 @@ Components:
 			4. The number of queries in the particular row that will be
                executed concurrently.
 			5. The user that should be used to execute the queries.
-                 The user should not have to type a password.
+               The user should not have to type a password.
 			6. Number of queries to use in the sample. Use '-1' to use all the
                queries in the directory. Use a number greater than 0 to
                randomly select that number of queries from the total population
                in the directory. Note that this doesn't impact the execution
                order; for example, 5 randomly-selected queries from the
-               entire may be used, but then executed in either an ordered or
+               entire set may be used, but then executed in either an ordered or
                random sequence.
-			7. Example (Run 5 queries at a time from the oltp_style directory,
-                 choosing the next query in order, and run with the web_user
-                 account. Additionally, keep 1 query from bi_queries directory
-                 running during the test (picking that query from a random
-                 selection of 17 from the entire directory), choosing the
-                 next to run randomly from the queries in the directory,
-                 using the analytics_user account):
+
+			EXAMPLE:
                 qd $WORKDIR/queries/oltp_style/ ordered 5 web_user	-1
                 qd $WORKDIR/queries/bi_queries/ random  1 analytics_user 17
+            EXPLANATION:
+              Run 5 queries at a time from the oltp_style directory, choosing the
+              next query in order, and run with the web_user account.
+              Additionally, keep 1 query from bi_queries directory running during
+              the test (picking that query from a random selection of 17 from the
+              entire directory), choosing the next to run randomly from the queries
+              in the directory, using the analytics_user account.
+
 		B. num_simulation_ticks: How many seconds to run the test.
 		C. debug: Set to 1 if you want to see details of the execution,
               otherwise use 0. This parameter only effects what's displayed
               on the screen.
-		D. db_name: Database that should be used as the target of the queries.
+		D. db_name: Database to use as the target of the queries.
 		E. actually_run_query_against_db: Set to 1 when running the test.
               Use 0 to experiment with your configuration setting.
               Each query only sleeps a random interval rather than executing.
@@ -78,7 +84,7 @@ Components:
 			  This is useful for when you have other files in your query
               directories than what you want to execute. Otherwise, use 0.
 		J. query_filename_extension: Example .sql. This is the string that
-              must appear in the query filename is the
+              must appear in the query filename if the
               require_query_filename_extension value is set to 1.
 		K. max_per_query_executions: This parameter can be used in an
               'ordered' execution setting to limit the number of times a
@@ -107,7 +113,7 @@ Components:
               chosen, queries will sleep according to
               min_staggered_launch_window_interval and
               max_staggered_launch_window_interval before beginning their
-              execution. Useful when testing ver high concurrency.
+              execution. Useful when testing very high concurrency.
 		Q. min_staggered_launch_window_interval: During the staggered launch
               window, sleep at least this number of seconds before starting.
               Set to the same value as max_staggered_launch_window_interval
@@ -142,7 +148,7 @@ Output:
               directories. I think it's always set to 1.
 		B. QueryID: The name of the query.	
 		C. QueryRunID: The concatenation of the query_type, the query_id, and
-              a integer sequence. Makes this column unique.
+              an integer sequence. Makes this column unique.
 		D. StartTimeHuman: The full year, month, day, hour, minute, second
               when the query started.
 		E. StartTimeEpoch: The number of epoch seconds when the query started.
@@ -173,7 +179,7 @@ Output:
 		E. MinRuntime: The minimum number of execution seconds
 		F. MaxRuntime: The maximum number of execution seconds
 		G. StdDev: The standard deviation of the query's runtimes
-		H. RelativeDev: Relative Deviation. A very useful metric
-              It's the (StdDev / MeanRuntime), as a percent
+		H. RelativeDev: Relative Deviation.
+            A very useful metric - it's the (StdDev / MeanRuntime), as a percent
  		I. RunName
 		J. RunNickname

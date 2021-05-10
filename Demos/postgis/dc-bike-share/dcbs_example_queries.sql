@@ -93,7 +93,7 @@ where temp_fahrenheit is not null
 
 
 /*
- Let's take a look at the most popular bikes
+ Let's take a look at the most used bikes
  */
 
 select bike_num, count(1) from dc_bikeshare.trips
@@ -102,7 +102,7 @@ order by 2 desc
 limit 5;
 
 /*
- Now let's see the most popular bike by station
+ Now let's see the most used bike by station
  */
 
 select start_station_num, location, bike_num, cnt
