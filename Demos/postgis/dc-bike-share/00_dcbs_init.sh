@@ -2,7 +2,10 @@
 
 set -u
 
-[[ ${USER} != "gpadmin" ]] && { echo "This script must be run by gpadmin"; exit 0; }
+if [[ ${USER} != "gpadmin" ]] || [[ ${USER} != "pivotal" ]]; then
+    echo "This script must be run by gpadmin"
+    exit 0
+fi
 
 cat << EOF
 Welcome to the DC Bike Share demo for PostgreSQL and Greenplum!
@@ -79,7 +82,7 @@ EOF
 chmod +x ${get_metadata_script}
 
 exists=$(psql -At -d $demo_db -c "select 1 from pg_tables where tablename = 'spatial_ref_sys'")
-if [[ $exists <> 1 ]]; then
+if [[ $exists != 1 ]]; then
     echo "** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION *****"
     echo "**** PostGIS is not loaded in the database. Install the package before preceding. ****"
     echo "**************************************************************************************"

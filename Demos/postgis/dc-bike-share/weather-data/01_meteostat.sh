@@ -21,11 +21,17 @@ read -p "Please enter your MeteoStat key: " mkey
 
 long='-77.03'
 lat='38.89'
-tz='America/New_York'
+tz='America%2FNew_York'
+
+API_BASE=https://meteostat.p.rapidapi.com
+# WGET Parameters
+# " --quiet --header='x-rapidapi-host: meteostat.p.rapidapi.com' --header='x-rapidapi-key: ${METEOSTAT_KEY}' "
+
+#--header='x-rapidapi-key: 723291a955msh7cb96da6277e4c4p12d063jsnf44ed5ccfa3e' "
 
 # To search for stations near a long/lat:
 echo "Five closest weather observation stations near the Smithsonian (long/lat = $long/$lat)"
-wget -q -O dca_stations_near.json "https://api.meteostat.net/v1/stations/nearby?lat=${lat}&lon=${long}&limit=5&key=${METEOSTAT_KEY}" | jq -c '.data[]'
+wget -O dca_stations_near.json --quiet --header="x-rapidapi-host: meteostat.p.rapidapi.com" --header="x-rapidapi-key: ${METEOSTAT_KEY}" "${API_BASE}/stations/nearby?lat=${lat}&lon=${long}&limit=5" | jq -c '.data[]'
 
 # For our purposes, we are using the observation data from Washington National Airport (DCA)
 # 72405,US,"Washington National Airport",38.8500,-77.0333,5,KDCA,72405,DCA,America/New_York
@@ -40,7 +46,28 @@ start="2018-01-01"
 end="2019-12-31"
 t_format="Y-m-d%20H:i:s"
 # Daily weather observations
-wget -q -O dca_daily_2018_2019.json "https://api.meteostat.net/v1/history/daily?station=${id}&start=${start}&end=${end}&key=${METEOSTAT_KEY}"
+wget -O dca_daily_2018_2019.json  --quiet --header="x-rapidapi-host:meteostat.p.rapidapi.com" --header="x-rapidapi-key:${METEOSTAT_KEY}" "${API_BASE}/stations/daily?station=${id}&start=${start}&end=${end}"
 
 # Hourly weather observations
-wget -q -O dca_hourly_2018_2019.json "https://api.meteostat.net/v1/history/hourly?station=${id}&start=${start}&end=${end}&time_zone=${tz}&time_format=${t_format}&key=${METEOSTAT_KEY}"
+# There is a limit of 30 days for retrieving hourly data:
+# https://dev.meteostat.net/api/stations/hourly.html
+days_in_month=(31 28 31 30 31 30 31 31 30 31 30 31)
+
+hourly_file="dca_hourly_2018_2019.json"
+touch ${hourly_file}
+
+for yr in 2018 2019
+do
+    for mth in $(seq -w 01 12)
+    do
+	m=$(( $(printf "%d" ${mth#0}) - 1 ))
+        wget -O wget.out  --quiet --header=x-rapidapi-host:meteostat.p.rapidapi.com --header=x-rapidapi-key:${METEOSTAT_KEY} "${API_BASE}/stations/hourly?station=${id}&start=${yr}-${mth}-01&end=${yr}-${mth}-${days_in_month[$m]}&time_zone=${tz}"
+	sleep 0.5
+
+        cat wget.out >> ${hourly_file}
+    done
+done
+
+rm wget.out
+
+exit 0

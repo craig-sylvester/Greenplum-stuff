@@ -6,10 +6,9 @@ use POSIX ":sys_wait_h";
 
 
 ################################################################################
+# The variables below are set by the config file. The name of the ##############
+# config is the first argument passed on the command line.        ##############
 ################################################################################
-################################################################################
-# The variables below are set by the config file. The name of the config is
-# the first argument passed on the command line.
 
 my $num_simulation_ticks = -999; 
 my $min_pre_execution_sleep_interval = -999; 
@@ -19,8 +18,8 @@ my $max_post_execution_sleep_interval = -999;
 my $staggered_launch_window_secs = -999;
 my $min_staggered_launch_window_interval = -999; 
 my $max_staggered_launch_window_interval = -999; 
-my $require_query_filename_extension = -999; 
-my $query_filename_extension = "fooplex";
+#my $require_query_filename_extension = -999; 
+my $query_filename_extension = "NONE";
 my $max_per_query_executions = -999; 
 my $create_required_directories = -999;
 my $debug = -999; 
@@ -28,7 +27,6 @@ my $db_name = "fooplex";
 my $actually_run_query_against_db = -999; 
 my $os_type = "fooplex";
 my $base_dir = "fooplex";
-my $sql_client = "fooplex";
 my $config_file = "fooplex";
 my $sql_run_mode = -999;
 my $kill_full_filename = "fooplex";
@@ -36,10 +34,10 @@ my $output_to_db = -999;
 my $output_schema = "fooplex";
 my $output_table = "fooplex";
 my $output_rg_cfg_table = "";
+
 ################################################################################
+# Non-Configurable #############################################################
 ################################################################################
-################################################################################
-# Non-Configurable (think Europa):
 my $query_output_directory; 
 my $query_log_directory; 
 my $stored_runtime_sql_directory; 
@@ -56,44 +54,55 @@ my $end_simulation_early = 0;
 my %valid_types;
 my $reload_tot_queries = 0;
 my $nickname = $right_now;
+
 ################################################################################
-################################################################################
+# SUBROUTINES ##################################################################
 ################################################################################
 
-
-# Subroutines:
 sub check_config_file {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my $config_filename;
 
     my $retval = 1; 
 
-    print "\nChecking command line arguements...";
+    my_print ($current_sub,  "\nChecking command line arguements...");
     if($#ARGV < 0) {
-        print "..Fail. A config file must now be passed on the command line when calling the program.";
+        my_print ($current_sub, "..Fail. Config file required.\n");
+        my_print ($current_sub, "Usage: $0 <config file> [run nickname]\n");
         $retval = 0;
     } 
     else {
-        print "..Good";
-        $config_filename = $ARGV[0];
-        print "\nChecking Config file for existance ($config_filename)...";     
-        if(-e $config_filename) { print "..Good.\n"; $config_file = $config_filename; }
-        else { print "..Fail. Configure file ($config_filename) not found."; $retval = 0; } 
+        my_print ($current_sub, ".. Good.\nChecking Config file for existance $ARGV[0])..."); 
+        if(-e $ARGV[0]) { my_print ($current_sub, "..Good.\n"; $config_file = $ARGV[0]); }
+        else { my_print ($current_sub, "..Fail. Configure file ($ARGV[0]) not found.\n"; $retval = 0;)} 
 
         # Use the nickname if it was provided.
         if($#ARGV == 1 and length($ARGV[1]) > 0) {
             $nickname = $ARGV[1];
-            print "Using the provided run nickname of $nickname\n";
-        } 
+
+            # If the name ends in 'TS', replace 'TS' with the current timestamp
+            if ($nickname =~ m/TS$/) {
+                my $reportTS = `date "+%d_%b_%H:%M:%S"`; chomp $reportTS;
+                $nickname =~ s/TS/$reportTS/;
+            }
+            my_print ($current_sub, "Using the provided run nickname of $nickname\n") ;
+        }
     }
 
     if($retval == 0) {
-        print "Cannot proceed.\n";
+        my_print ($current_sub, "Cannot proceed.\n") ;
         exit 1;
     }
+} # check_config_file
+
+sub my_print {
+    my ($function, $message) = @_;
+
+    print "$function: $message\n";
 }
 
-
 sub verify_setup {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my $config_filename;
 
     my $retval = 1;
@@ -105,38 +114,43 @@ sub verify_setup {
     $set_variable_replacement_directory  = "$base_dir/variable_replacement/";
 
 
-    print "\nChecking Query Output directory ($query_output_directory)...";
-    if(-e $query_output_directory) { print "..Good.\n"; }
-    elsif ($create_required_directories) { print "..Creating.\n"; system ('mkdir ' . $query_output_directory); }
-    else { print "..Fail. \n"; $retval = 0; } 
+    my_print ($current_sub, "Checking Query Output directory ($query_output_directory)...");
+    if(-e $query_output_directory) { my_print ($current_sub, "..Good."); }
+    elsif ($create_required_directories) { my_print ($current_sub, "..Creating.");
+                                           system ('mkdir ' . $query_output_directory); }
+    else { my_print ($current_sub, "..Fail."); $retval = 0; } 
 
-    print "Checking Query Log directory ($query_log_directory)...";
-    if(-e $query_log_directory) { print "..Good.\n"; }
-    elsif ($create_required_directories) { print "..Creating.\n"; system ('mkdir ' . $query_log_directory); }
-    else { print "..Fail. \n"; $retval = 0; }
+    my_print ($current_sub, "Checking Query Log directory ($query_log_directory)...");
+    if(-e $query_log_directory) { my_print ($current_sub, "..Good."); }
+    elsif ($create_required_directories) { my_print ($current_sub, "..Creating.");
+                                           system ('mkdir ' . $query_log_directory); }
+    else { my_print ($current_sub, "..Fail."); $retval = 0; }
 
-    print "Checking Stored Runtime SQL directory ($stored_runtime_sql_directory)...";
-    if(-e $stored_runtime_sql_directory) { print "..Good.\n"; }
-    elsif ($create_required_directories) { print "..Creating.\n"; system ('mkdir ' . $stored_runtime_sql_directory); }
-    else { print "..Fail. \n"; $retval = 0; }
+    my_print ($current_sub, "Checking Stored Runtime SQL directory ($stored_runtime_sql_directory)...");
+    if(-e $stored_runtime_sql_directory) { my_print ($current_sub, "..Good."); }
+    elsif ($create_required_directories) { my_print ($current_sub, "..Creating.");
+                                           system ('mkdir ' . $stored_runtime_sql_directory); }
+    else { my_print ($current_sub, "..Fail."); $retval = 0; }
 
-    print "Checking Executive Summary directory ($exec_summary_directory)...";
-    if(-e $exec_summary_directory) { print "..Good.\n"; }
-    elsif ($create_required_directories) { print "..Creating.\n"; system ('mkdir ' . $exec_summary_directory); }
-    else { print "..Fail. \n"; $retval = 0; }
+    my_print ($current_sub, "Checking Executive Summary directory ($exec_summary_directory)...");
+    if(-e $exec_summary_directory) { my_print ($current_sub, "..Good."); }
+    elsif ($create_required_directories) { my_print ($current_sub, "..Creating.");
+                                           system ('mkdir ' . $exec_summary_directory); }
+    else { my_print ($current_sub, "..Fail."); $retval = 0; }
 
-    print "Checking Variable Replacement directory ($set_variable_replacement_directory)...";
-    if(-e $set_variable_replacement_directory) { print "..Good.\n"; }
-    elsif ($create_required_directories) { print "..Creating.\n"; system ('mkdir ' . $set_variable_replacement_directory); }
-    else { print "..Fail. \n"; $retval = 0; }
+    my_print ($current_sub, "Checking Variable Replacement directory ($set_variable_replacement_directory)...");
+    if(-e $set_variable_replacement_directory) { my_print ($current_sub, "..Good."); }
+    elsif ($create_required_directories) { my_print ($current_sub, "..Creating.");
+                                           system ('mkdir ' . $set_variable_replacement_directory); }
+    else { my_print ($current_sub, "..Fail."); $retval = 0; }
 
-    print "Checking absence of kill file ($kill_full_filename)...";
-    if(-e $kill_full_filename) { print "..Fail.\n"; $retval = 0; }
-    else { print "..Good. \n";}
+    my_print ($current_sub, "Checking absence of kill file ($kill_full_filename)...");
+    if(-e $kill_full_filename) { my_print ($current_sub, "..Fail."); $retval = 0; }
+    else { my_print ($current_sub, "..Good.");}
 
 
     if($retval == 0) {
-        print "Cannot proceed.\n";
+        my_print ($current_sub, "Cannot proceed.");
         exit 1;
     }
     else {
@@ -146,10 +160,11 @@ sub verify_setup {
         my $make_query_log_directory = "mkdir $query_log_directory";
         system($make_query_log_directory);
     }
-}
+} # verify_setup
 
 
 sub process_config_file {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my $type_counter = 1;
     my %variable_check;
     my $retval = 1;
@@ -166,7 +181,6 @@ sub process_config_file {
     $variable_check{'staggered_launch_window_secs'} = 0;
     $variable_check{'min_staggered_launch_window_interval'} = 0;
     $variable_check{'max_staggered_launch_window_interval'} = 0;
-    $variable_check{'require_query_filename_extension'} = 0;
     $variable_check{'query_filename_extension'} = 0;
     $variable_check{'max_per_query_executions'} = 0;
     $variable_check{'debug'} = 0;
@@ -175,12 +189,10 @@ sub process_config_file {
     $variable_check{'actually_run_query_against_db'} = 0;
     $variable_check{'os_type'} = 0;
     $variable_check{'base_dir'} = 0;
-    $variable_check{'sql_client'} = 0;
     $variable_check{'qd'} = 0;
 
     # Process the config file.
-    # Open the config file or die.
-    open(CONFIG,$config_file) or die "Couldn't open config file $config_file $!\n";
+    open(CONFIG,$config_file) or die $current_sub . ": Couldn't open config file $config_file $!\n";
 
     while(<CONFIG>) {
         next if $_ =~ /^#/;
@@ -198,7 +210,8 @@ sub process_config_file {
         if($data[0] =~ 'qd') {
             # Confirm that the correct number of fields exist per row.
             if($#data != 5) {
-                print "There is the wrong number of fields in this row, exiting\n\t$data_row \n";
+                my_print ($current_sub,
+                          "Exiting: There is the wrong number of fields in this row:\n\t$data_row");
                 exit 0;
             }
             else {
@@ -217,85 +230,105 @@ sub process_config_file {
         }
         else {
 
-            if($debug) { print "Config file parameter $data[0] = $data[1] \n"; }      
+            if($debug) { my_print ($current_sub, "Config file parameter $data[0] = $data[1]"); }
 
-            if($data[0] =~ 'num_simulation_ticks')                 { $num_simulation_ticks = $data[1]; $variable_check{'num_simulation_ticks'} = 1; }
-            if($data[0] =~ 'min_pre_execution_sleep_interval')     { $min_pre_execution_sleep_interval = $data[1]; $variable_check{'min_pre_execution_sleep_interval'} = 1; } 
-            if($data[0] =~ 'max_pre_execution_sleep_interval')     { $max_pre_execution_sleep_interval = $data[1]; $variable_check{'max_pre_execution_sleep_interval'} = 1; }
-            if($data[0] =~ 'min_post_execution_sleep_interval')    { $min_post_execution_sleep_interval = $data[1]; $variable_check{'min_post_execution_sleep_interval'} = 1; }
-            if($data[0] =~ 'max_post_execution_sleep_interval')    { $max_post_execution_sleep_interval = $data[1]; $variable_check{'max_post_execution_sleep_interval'} = 1; }
-            if($data[0] =~ 'staggered_launch_window_secs')         { $staggered_launch_window_secs = $data[1]; $variable_check{'staggered_launch_window_secs'} = 1; }
-            if($data[0] =~ 'min_staggered_launch_window_interval') { $min_staggered_launch_window_interval = $data[1]; $variable_check{'min_staggered_launch_window_interval'} = 1; }
-            if($data[0] =~ 'max_staggered_launch_window_interval') { $max_staggered_launch_window_interval = $data[1]; $variable_check{'max_staggered_launch_window_interval'} = 1; }
-            if($data[0] =~ 'require_query_filename_extension')     { $require_query_filename_extension = $data[1]; $variable_check{'require_query_filename_extension'} = 1; }
-            if($data[0] =~ 'query_filename_extension')             { $query_filename_extension = $data[1]; $variable_check{'query_filename_extension'} = 1; }
-            if($data[0] =~ 'max_per_query_executions')             { $max_per_query_executions = $data[1]; $variable_check{'max_per_query_executions'} = 1; }
-            if($data[0] =~ 'debug')                                { $debug = $data[1]; $variable_check{'debug'} = 1; }
-            if($data[0] =~ 'create_required_directories')          { $create_required_directories = $data[1]; $variable_check{'create_required_directories'} = 1; }
-            if($data[0] =~ 'db_name')                              { $db_name = $data[1]; $variable_check{'db_name'} = 1; }
-            if($data[0] =~ 'actually_run_query_against_db')        { $actually_run_query_against_db = $data[1]; $variable_check{'actually_run_query_against_db'} = 1; }
-            if($data[0] =~ 'os_type')                              { $os_type = $data[1]; $variable_check{'os_type'} = 1; }
-            if($data[0] =~ 'base_dir')                             { $base_dir = $data[1]; $variable_check{'base_dir'} = 1; }
-            if($data[0] =~ 'sql_client')                           { $sql_client = $data[1]; $variable_check{'sql_client'} = 1; }
-            if($data[0] =~ 'sql_run_mode')                         { $sql_run_mode = $data[1]; $variable_check{'sql_run_mode'} = 1; }
-            if($data[0] =~ 'kill_full_filename')                   { $kill_full_filename = $data[1]; $variable_check{'kill_full_filename'} = 1; }
-            if($data[0] =~ 'output_to_db')                         { $output_to_db = $data[1]; $variable_check{'output_to_db'} = 1; }
-            if($data[0] =~ 'output_schema')                        { $output_schema = $data[1]; $variable_check{'output_schema'} = 1; }
-            if($data[0] =~ 'output_table')                         { $output_table = $data[1]; $variable_check{'output_table'} = 1; }
-            if($data[0] =~ 'output_rg_cfg_table')                  { $output_rg_cfg_table = $data[1]; $variable_check{'output_rg_cfg_table'} = 1; }
+            if($data[0] =~ 'debug') { $debug = $data[1]; $variable_check{'debug'} = 1; }
 
-            # If running in an 'explain' mode, automatically set the max_per_query_executions to 1.
-            if($sql_run_mode > 1)                                  { $max_per_query_executions = 1; }
+            if($data[0] =~ 'num_simulation_ticks')                 { $num_simulation_ticks = $data[1];
+                                                                     $variable_check{'num_simulation_ticks'} = 1; }
+            if($data[0] =~ 'min_pre_execution_sleep_interval')     { $min_pre_execution_sleep_interval = $data[1];
+                                                                     $variable_check{'min_pre_execution_sleep_interval'} = 1; } 
+            if($data[0] =~ 'max_pre_execution_sleep_interval')     { $max_pre_execution_sleep_interval = $data[1];
+                                                                     $variable_check{'max_pre_execution_sleep_interval'} = 1; }
+            if($data[0] =~ 'min_post_execution_sleep_interval')    { $min_post_execution_sleep_interval = $data[1];
+                                                                     $variable_check{'min_post_execution_sleep_interval'} = 1; }
+            if($data[0] =~ 'max_post_execution_sleep_interval')    { $max_post_execution_sleep_interval = $data[1];
+                                                                     $variable_check{'max_post_execution_sleep_interval'} = 1; }
+            if($data[0] =~ 'staggered_launch_window_secs')         { $staggered_launch_window_secs = $data[1];
+                                                                     $variable_check{'staggered_launch_window_secs'} = 1; }
+            if($data[0] =~ 'min_staggered_launch_window_interval') { $min_staggered_launch_window_interval = $data[1];
+                                                                     $variable_check{'min_staggered_launch_window_interval'} = 1; }
+            if($data[0] =~ 'max_staggered_launch_window_interval') { $max_staggered_launch_window_interval = $data[1];
+                                                                     $variable_check{'max_staggered_launch_window_interval'} = 1; }
+            if($data[0] =~ 'query_filename_extension')      { $query_filename_extension = $data[1];
+                                                              $variable_check{'query_filename_extension'} = 1; }
+            if($data[0] =~ 'max_per_query_executions')      { $max_per_query_executions = $data[1];
+                                                              $variable_check{'max_per_query_executions'} = 1; }
+            if($data[0] =~ 'create_required_directories')   { $create_required_directories = $data[1];
+                                                              $variable_check{'create_required_directories'} = 1; }
+            if($data[0] =~ 'db_name')                       { $db_name = $data[1];
+                                                              $variable_check{'db_name'} = 1; }
+            if($data[0] =~ 'actually_run_query_against_db') { $actually_run_query_against_db = $data[1];
+                                                              $variable_check{'actually_run_query_against_db'} = 1; }
+            if($data[0] =~ 'os_type')             { $os_type = $data[1];
+                                                    $variable_check{'os_type'} = 1; }
+            if($data[0] =~ 'base_dir')            { $base_dir = $data[1];
+                                                    $variable_check{'base_dir'} = 1; }
+            if($data[0] =~ 'sql_run_mode')        { $sql_run_mode = $data[1];
+                                                    $variable_check{'sql_run_mode'} = 1; }
+            if($data[0] =~ 'kill_full_filename')  { $kill_full_filename = $data[1];
+                                                    $variable_check{'kill_full_filename'} = 1; }
+            if($data[0] =~ 'output_to_db')        { $output_to_db = $data[1];
+                                                    $variable_check{'output_to_db'} = 1; }
+            if($data[0] =~ 'output_schema')       { $output_schema = $data[1];
+                                                    $variable_check{'output_schema'} = 1; }
+            if($data[0] =~ 'output_table')        { $output_table = $data[1];
+                                                    $variable_check{'output_table'} = 1; }
+            if($data[0] =~ 'output_rg_cfg_table') { $output_rg_cfg_table = $data[1];
+                                                    $variable_check{'output_rg_cfg_table'} = 1; }
+
         }
-    }
+    } # end while
 
     close(CONFIG);
-
 
     # Confirm that all values have been set.
     foreach my $passed_var (sort keys %variable_check) {
         if($variable_check{$passed_var} == 0) {
-            print "Missing configuration variable: $passed_var \n";
+            my_print ($current_sub, "Missing configuration variable: $passed_var");
             $retval = 0;
         }           
     }
 
-
-        if($retval == 0) {
-                print "Cannot proceed.\n";
-                exit 1;
-        }
-
-}
+    if($retval == 0) {
+            my_print ($current_sub, "Cannot proceed.");
+            exit 1;
+    }
+    #
+    # If running in an 'explain' mode, automatically set the max_per_query_executions to 1.
+    if($sql_run_mode > 1) { $max_per_query_executions = 1; }
+} # process_config_file
 
 
 sub initialize_directories {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
 
-        # Remove any pre-existing runtime SQL files.
-        my $delete_runtime_sql_cmd = "rm -f $stored_runtime_sql_directory" . "/*";
-        system($delete_runtime_sql_cmd);
+    # Remove any pre-existing runtime SQL files.
+    my $delete_runtime_sql_cmd = "rm -f $stored_runtime_sql_directory" . "/*";
+    system($delete_runtime_sql_cmd);
 
-        # Remove any pre-existing output filenames.
-        my $delete_output_filename_cmd = "rm -f $query_output_directory" . "/*";
-        system($delete_output_filename_cmd);
-
-}
+    # Remove any pre-existing output filenames.
+    my $delete_output_filename_cmd = "rm -f $query_output_directory" . "/*";
+    system($delete_output_filename_cmd);
+} # initialize_directories
 
 
 sub load_variable_placement_files {
     
-        opendir(VARS_DIR, $set_variable_replacement_directory)
-            or die "Could not open variable replacement directory $set_variable_replacement_directory $!\n";
-        my @var_files = readdir(VARS_DIR);
-        closedir(VARS_DIR);
-     
-        foreach my $x (@var_files) {     
-            next unless ($x =~ /[0-9]/ or uc($x) =~ /[A-Z]/);
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
+    opendir(VARS_DIR, $set_variable_replacement_directory)
+        or die $current_sub . ": Could not open variable replacement directory $set_variable_replacement_directory $!\n";
+    my @var_files = readdir(VARS_DIR);
+    closedir(VARS_DIR);
+ 
+    foreach my $x (@var_files) {     
+        next unless ($x =~ /[0-9]/ or uc($x) =~ /[A-Z]/);
 
         my @temp_array;
 
         # Open the data file and place its contents into an array.
-        open(VARS_DATA,$set_variable_replacement_directory . "/" . $x) or die "Could not open the variable replacement file " . $set_variable_replacement_directory . "/" . $x . "$!\n";
+        open(VARS_DATA,$set_variable_replacement_directory . "/" . $x)
+            or die $current_sub . ": Could not open the variable replacement file " . $set_variable_replacement_directory . "/" . $x . "$!\n";
         while(<VARS_DATA>) {
             chomp $_;
             push(@temp_array,$_);           
@@ -304,28 +337,31 @@ sub load_variable_placement_files {
 
         # Put the array as a value in a hash keyed on the filename.
         $variable_replacement{$x} = \@temp_array;
-    }    
-}
+    }
+} # load_variable_placement_files
 
 
 sub get_query_type {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($query_dir) = @_;
     my $retval; 
 
     my @query_type_helper = split(/\//, $query_dir);
     my $max_index = $#query_type_helper;
     $retval = $query_type_helper[$max_index];
+    if ($debug) { my_print ($current_sub, "----- Query Type: $retval"); }
 
     return $retval;
-}
+} # get_query_type
 
 
 sub display_query_mix {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($print_bool) = @_;
 
     my $query_type;
 
-    if($print_bool) { print "About to run the following:\n"; }
+    if($print_bool) { my_print ($current_sub, "About to run the following:"); }
     my $total_query_count = 0;
 
     foreach my $query_dir (sort(keys %desired_query_mix)) { 
@@ -337,37 +373,39 @@ sub display_query_mix {
             $total_query_count = $total_query_count + $desired_query_mix{$query_dir}{'qty'};
 
             if($print_bool) { 
-                print "\tID: $query_dir "; 
-                print "Type: $query_type ";
-                print "Concurrency: $desired_query_mix{$query_dir}{'qty'} ";
+                my_print ($current_sub, "\tID: $query_dir "); 
+                my_print ($current_sub, "Type: $query_type ");
+                my_print ($current_sub, "Concurrency: $desired_query_mix{$query_dir}{'qty'} ");
                 if ($desired_query_mix{$query_dir}{'max_sql'} > -1) {
-                    print "[Using a randomly selected $desired_query_mix{$query_dir}{'max_sql'} SQL statements from the directory.] ";
+                    my_print ($current_sub, "[Using a randomly selected $desired_query_mix{$query_dir}{'max_sql'} SQL statements from the directory.] ");
                 }
-                print "Style: $desired_query_mix{$query_dir}{'style'} ";
-                print "User: $desired_query_mix{$query_dir}{'user'}\n";
+                my_print ($current_sub, "Style: $desired_query_mix{$query_dir}{'style'} ");
+                my_print ($current_sub, "User: $desired_query_mix{$query_dir}{'user'}\n");
             }
         }
     }
     #print "For a total of $total_query_count number of simultaneous queries.\n";
-    if($print_bool) { print "\n"; }
+    #if($print_bool) { my_print ($current_sub, "\n"); }
 
     return $total_query_count;
-}
+} # display_query_mix
 
 
 sub register_query {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($type, $query, $sql) = @_;
 
-    print "Registering Query => Type: $type, Query_ID: $query";
-    print "\nSQL:\n$sql";
-    print "\n";
+    my_print ($current_sub, "Registering Query => Type: $type, Query_ID: $query");
+    if ($debug == 2) { my_print ($current_sub, "\nSQL:\n$sql\n"); }
 
     $queries{$type}{$query}{'sql'} = $sql;
     $queries{$type}{$query}{'running'} = 0;
-}
+} # register_query
 
 
 sub discover_queries {
+
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
 
     # Go through each query type directory, adding any found queries
     # to the general queries data structure.
@@ -377,11 +415,11 @@ sub discover_queries {
 
         my $query_type_dir = $desired_query_mix{$type_id}{'dir'};
         opendir(TYPE_DIR, $query_type_dir)
-            or die "FAIL: Could not open query directory $query_type_dir $!\n";
+            or die $current_sub . ": FAIL -> Could not open query directory $query_type_dir $!\n";
         my @temp_queries = readdir(TYPE_DIR);
         closedir(TYPE_DIR);
     
-        if ($debug) { print "Query Directory: $query_type_dir\n"; }
+        if ($debug) { my_print ($current_sub, "Query Directory: $query_type_dir"); }
 
         # Use a subset of all the queries in a directory are to be used,
         # randomly select the right number.
@@ -394,7 +432,7 @@ sub discover_queries {
 
             foreach my $x (@temp_queries) {            
                 next unless ($x =~ /[0-9]/ or uc($x) =~ /[A-Z]/);
-                if($require_query_filename_extension) {
+                if($query_filename_extension =~ 'NONE') {
                     next unless $x =~ /$query_filename_extension$/;
                 }
                 push(@counted_queries,$x);
@@ -422,7 +460,7 @@ sub discover_queries {
 
                 push(@random_queries, $counted_queries[$random_pos]);
                 $num_needed_queries--;
-            } 
+            }
 
             @temp_queries = @random_queries;
         }
@@ -431,14 +469,14 @@ sub discover_queries {
         foreach my $query (@temp_queries) {
 
             next unless ($query =~ /[0-9]/ or uc($query) =~ /[A-Z]/);
-            if($require_query_filename_extension) {
+            if($query_filename_extension =~ 'NONE') {
                 next unless $query =~ /$query_filename_extension$/;
             }
     
-            if($debug) { print "Adding query from file: $query \n"; } 
+            if($debug) { my_print ($current_sub, "Adding query from file: $query"); } 
             my $full_path = $query_type_dir . $query;
             my $sql = "";
-            open(SQL,$full_path) or die "Couldn't open query $full_path $!\n";
+            open(SQL,$full_path) or die $current_sub . ": Could not open query: $full_path $!\n";
             while(<SQL>) {
                 $sql = $sql . $_;
             }
@@ -447,25 +485,28 @@ sub discover_queries {
             register_query($type_id, $query, $sql);
         }
     }
-}
+} # discover_queries
 
 
 sub display_running_status {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($total_queries) = @_;
 
     my @running_queries = sort (keys(%pids));
     my $num_queries = 0;
-    print "\tStatus[" . ($#running_queries + 1) . " of max $total_queries]: "; 
+    my_print ($current_sub, "\tStatus[" . ($#running_queries + 1) . " of max $total_queries]: "); 
+
+    my $running_query_list = "";
     foreach my $running_query (@running_queries) { 
-        print "$running_query ";
+        $running_query_list =  "$running_query, $running_query_list";
         $num_queries++; 
     }
-    #print "Total: " . $num_queries . "\n";
-    print "\n";
-}
+    my_print ($current_sub, "Num of queries: $num_queries ; Running queries: $running_query_list");
+} # display_running_status
 
 
 sub check_available_slots_for_type {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($type) = @_;
     my $retval = 0;
 
@@ -485,52 +526,56 @@ sub check_available_slots_for_type {
     my $total_queries_for_type = 0;
     $total_queries_for_type = $total_queries_for_type + $desired_query_mix{$type}{'qty'};
 
+    if ($debug) (my_print ($current_sub, ": Type = $type: there are $numb_executing_queries out of $total_queries_for_type executing"); }
+
     # Decide if there are available slots for the type.
     if($num_executing_queries < $total_queries_for_type) {
         $retval = 1;
     }
 
     return $retval;
-}
+} # check_available_slots_for_type 
 
 
 sub check_query_counts {
 
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my @types = keys(%queries);
     if($debug) {
-    foreach my $type (@types) {
-        print "**********************************************\n";
-        print "Type: $type\t";
+        foreach my $type (@types) {
+            my_print ($current_sub, "**********************************************\nType: $type\t");
             my @queries = sort keys(%{$queries{$type}});
             foreach my $query (@queries) {
-            print "Query: $query\t";
-                    my @pids = keys(%{$queries{$type}{$query}{'pid'}});
-            print " " . ($#pids + 1) . "\n";
+                my @pids = keys(%{$queries{$type}{$query}{'pid'}});
+                my_print ($current_sub, "Query: $query\t" . ($#pids + 1));
             }
-        print "*********************************************\n";
-    }
+            my_print ($current_sub, "*********************************************");
+        }
     }
 
-}
+} # check_query_counts
 
 
 sub get_valid_types {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my @retval;
 
-    if($debug) { print "-------------- Valid types: "; }
+    my $type_list = "";
     foreach my $type (keys(%valid_types)) {
         if($valid_types{$type} == 1) {
             push(@retval, $type);
-            if($debug) { print "$type\t"; }
+            $type_list = "$type\t$type_list";
         }
     }
-    if($debug) { print "\n";}
+
+    if($debug) { my_print ($current_sub, "-------------- Valid types: $type_list") ; }
 
     return @retval;
-}
+} # get_valid_types
 
 
 sub select_next_query {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($pid) = @_;
 
     my $need_next_query = 1;    
@@ -540,28 +585,27 @@ sub select_next_query {
     my %num_types_checked;
 
     # Until the next to run has been selected, or there are no more slots currently available.
-    my $header="--------------"; my $footer="\n";
+    my $header="--------------"; my $footer="";
     while($need_next_query) {
         # Randomly pick a query type, from remaining valid types.
         my @types = get_valid_types();
 
-        if($debug) { print "$header Number of elements in types array: $#types $footer"; }
+        if($debug) { my_print ($current_sub, "$header Number of elements in types array: $#types $footer"); }
 
         my %type_map;
         for(my $y = 0; $y <= $#types; $y++) {
             $type_map{$y} = $types[$y];
-            if($debug) {  print "$header Map($y): $types[$y] $footer"; }
+            if($debug) {  my_print ($current_sub, "$header Map($y): $types[$y] $footer"); }
         }
 
-
         my $num_types = ($#types + 1);
-        if($debug) { print "$header Number of types: $num_types $footer"; }
+        if($debug) { my_print ($current_sub, "$header Number of types: $num_types $footer"); }
 
         my $rand_type = int(rand($num_types)) +0;
-        if($debug) { print "$header Rand Type: $rand_type $footer"; }
+        if($debug) { my_print ($current_sub, "$header Rand Type: $rand_type $footer"); }
 
         $next_query_type = $type_map{$rand_type};
-        if($debug) { print "$header Type chosen: $next_query_type $footer"; }
+        if($debug) { my_print ($current_sub, "$header Type chosen: $next_query_type $footer"); }
 
         # Hack!
         $rand_type = $next_query_type;
@@ -609,26 +653,28 @@ sub select_next_query {
             if($max_per_query_executions > 0) {
                 if($on_last_query) {
 
-                    # There is a bit of math here, because we are counting the highest index in the hash containing the pids.
+                    # There is a bit of math here, because we are counting the highest index
+                    # in the hash containing the pids.
                     if($debug) { 
-                        print "************For $min_query_name, the (corrected) min_query_run_count is " . ($min_query_run_count + 2) . 
-                        " and the max_per_query_executions is $max_per_query_executions \n";
+                        my_print ($current_sub,
+                            "For $min_query_name, the (corrected) min_query_run_count is " . ($min_query_run_count + 2) . 
+                        " and the max_per_query_executions is $max_per_query_executions");
                     }
                     if(($min_query_run_count + 2) >= $max_per_query_executions) {
-                        if($debug) { print "\n-----------------------Invalidating query type $next_query_type \n"; }
+                        if($debug) { my_print ($current_sub, "Invalidating query type $next_query_type \n"); }
                         $valid_types{$next_query_type} = 0;
 
                         # Force the reload of the tot_queries value from the main loop.
                         $reload_tot_queries = 1;
 
                         if($#types < 1) { 
-                            if($debug) { print "-----------------------------------------Setting the end simulation early flag.\n"; }
+                            if($debug) { my_print ($current_sub, "Setting the end simulation early flag."); }
                             $end_simulation_early = 1; 
                             #return 0;
                         }  
 
                         if($debug) { 
-                            print "Max executions per query reached, sending early-end-simulation flag.\n"; 
+                            my_print ($current_sub, "Max executions per query reached, sending early-end-simulation flag."); 
                         }  
                     }
                 }
@@ -643,16 +689,18 @@ sub select_next_query {
     # Once the next one to run has been chosen, add its pid to the query.
     $queries{$next_query_type}{$next_query_id}{'pid'}{$pid} = -999; 
     if($debug) { 
-        print "\tSELECT:\t\t(Runnable) Setting $next_query_type $next_query_id $pid to " . 
-            $queries{$next_query_type}{$next_query_id}{'pid'}{$pid} . ".\n";
+        my_print ($current_sub,
+                  "\tSELECT:\t\t(Runnable) Setting $next_query_type $next_query_id $pid to " . 
+                  $queries{$next_query_type}{$next_query_id}{'pid'}{$pid});
     }
     return 1;
-}
+} # select_next_query
 
 
 sub start_next_query {
 
-    if ($debug) { print "***** ENTERING start_next_query() *****\n"; }
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
+    if ($debug) { my_print ($current_sub, "***** ENTERING start_next_query() *****"); }
     my $next_query_type;
     my $next_query_id = 0;
     my $next_sql;
@@ -670,8 +718,9 @@ sub start_next_query {
             foreach my $pid (@pids) {
                 if($queries{$type}{$query}{'pid'}{$pid} == -999) {
                     if($debug) {
-                        print "\tSTART:\t\t(Executing) Found pid $pid with current status of " .
-                              $queries{$type}{$query}{'pid'}{$pid};
+                        my_print ($current_sub,
+                            "\tSTART:\t\t(Executing) Found pid $pid with current status of " .
+                            $queries{$type}{$query}{'pid'}{$pid}) ;
                     }
                     $counter++;
                     $next_query_type = $type;
@@ -683,9 +732,9 @@ sub start_next_query {
                     $queries{$type}{$query}{'pid'}{$pid} = 1;
 
                     if($debug) {
-                        print ". Setting status to $queries{$type}{$query}{'pid'}{$pid}.\n";
-                        print "Extra TYPE $next_query_type ID $next_query_id SQL $next_sql";
-                        print "\n";
+                        my_print ($current_sub,
+                            "Setting status to $queries{$type}{$query}{'pid'}{$pid}.\n" .
+                            "Extra TYPE $next_query_type ID $next_query_id SQL $next_sql") ;
                     }
 
                     $found_next_query = 1;
@@ -695,10 +744,11 @@ sub start_next_query {
     }
 
     return ($next_query_type, $next_query_id, $next_sql, $next_pid, $found_next_query);
-}
+} # start_next_query
 
 
 sub complete_query {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($pid,$query_type) = @_;
     my $found_pid = 0;
 
@@ -714,10 +764,11 @@ sub complete_query {
     check_query_counts();
 
     return $found_pid;
-}
+} # complete_query
 
 
 sub handle_sql_set_variable_replacement {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($original_sql) = @_;
     #my $original_sql = @_;
     my $retval = $original_sql;
@@ -725,7 +776,7 @@ sub handle_sql_set_variable_replacement {
 
     # Detect the presence of the variable file or SET variables.
     if($original_sql =~ /\/\*\+VARIABLE_REPLACEMENT_FILENAME=.+\*\//i) {
-        if($debug) { print "********************** SET MATCH !!!!!\n"; }    
+        if($debug) { my_print ($current_sub, "********************** SET MATCH !!!!!"); }    
         $found_set = 1; 
     }            
 
@@ -735,7 +786,7 @@ sub handle_sql_set_variable_replacement {
         my ($garbage1, $good1) = split(/\*\+VARIABLE_REPLACEMENT_FILENAME=/,$original_sql);
         my ($filename, $garbage2) = split(/\*\//,$good1);
                      
-        if($debug) { print "*** Here's the replacement filename:$filename" . "***\n"; }
+        if($debug) { my_print ($current_sub, "*** Here's the replacement filename:$filename"); }
 
         # Get a random row from the variable file.
         my $max_index = ( @{$variable_replacement{$filename}} -1);
@@ -748,7 +799,7 @@ sub handle_sql_set_variable_replacement {
 
             my $search_string = "\\" . "\$" . ($x + 1);
             if($debug) {
-                print "About to replace $search_string with " . $random_values[$x] . "\n";
+                my_print ($current_sub, "About to replace $search_string with " . $random_values[$x]);
             }    
 
             $retval =~ s/$search_string/$random_values[$x]/g;
@@ -756,13 +807,14 @@ sub handle_sql_set_variable_replacement {
     }    
 
     # Return the SQL, either with the replacement done (if needed) or simply the original SQL. 
-    if($debug) { print "ABOUT TO RETURN $retval ***\n"; }
+    if($debug) { my_print ($current_sub, "ABOUT TO RETURN $retval ***"); }
 
     return $retval;
-}
+} # handle_sql_set_variable_replacement 
 
 
 sub handle_sql_run_mode {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($original_sql) = @_;
     my $retval = $original_sql;
 
@@ -787,15 +839,16 @@ sub handle_sql_run_mode {
     }
 
     return $retval;
-}
+} # handle_sql_run_mode
 
 sub run_query {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($query_type, $query_id, $sql, $pid) = @_;
     my $elapsed_secs;
     my $run_status;
 
     if($debug) {
-        print "\tRUN:\t\t(Running) job_run $pid. and TYPE $query_type ID $query_id \n";
+        my_print ($current_sub, "\tRUN:\t\t(Running) job_run $pid and TYPE $query_type ID $query_id");
     }
 
     # Label the query with a flag for when it launched:
@@ -814,33 +867,29 @@ sub run_query {
 
         if($elapsed_secs < $staggered_launch_window_secs) {
             my $staggered_launch_sleep_interval;
-            my $staggered_launch_sleep_rand;
-            my $staggered_launch_sleep_cmd;
 
             if($debug) {
-                print "In launch window with $elapsed_secs elapsed seconds of a " .
-                      "$staggered_launch_window_secs second launch window!\n";
+                my_print ($current_sub, "In launch window with $elapsed_secs elapsed seconds of a " .
+                          "$staggered_launch_window_secs second launch window!") ;
             }
 
             if($min_staggered_launch_window_interval    == $max_staggered_launch_window_interval) {
-                $staggered_launch_sleep_interval   = $max_staggered_launch_window_interval;
-                $staggered_launch_sleep_rand       = $staggered_launch_sleep_interval;
-                $staggered_launch_sleep_cmd        = "sleep " . $staggered_launch_sleep_rand;
+                $staggered_launch_sleep_interval = $max_staggered_launch_window_interval;
             }
             else {
-                $staggered_launch_sleep_interval   = ($max_staggered_launch_window_interval - $min_staggered_launch_window_interval);
-                $staggered_launch_sleep_rand       = int(rand($staggered_launch_sleep_interval));
-                $staggered_launch_sleep_cmd        = "sleep " . ($min_staggered_launch_window_interval + $staggered_launch_sleep_rand);
+                my $random_adjustment = int(rand($max_staggered_launch_window_interval
+                                                 - $min_staggered_launch_window_interval));
+                $staggered_launch_sleep_interval  = ($min_staggered_launch_window_interval
+                                                     + $random_adjustment);
             }
 
 
             if($debug) {
-                my $debug_num_secs_to_sleep = $staggered_launch_sleep_cmd;
-                $debug_num_secs_to_sleep =~ s/sleep //g;
-                print "LAUNCH WINDOW SLEEP (" . $debug_num_secs_to_sleep . " secs).\n";
+                my_print ($current_sub,
+                    "LAUNCH WINDOW SLEEP (" . $staggered_launch_sleep_interval . " secs)");
             }
 
-            system($staggered_launch_sleep_cmd);
+            system("sleep " . $staggered_launch_sleep_interval);
         }
     }
 
@@ -849,29 +898,22 @@ sub run_query {
     # If requested, sleep for an interval before executing the query. 
     if($max_pre_execution_sleep_interval > 0) {
 
-        my $pre_execution_sleep_interval;
-        my $pre_execution_sleep_rand;
-        my $pre_execution_sleep_cmd;
+        my $pre_exec_sleep_interval;
 
         # If the min and max values are the same, sleep for a static (not random amount) of time.
         if($min_pre_execution_sleep_interval    == $max_pre_execution_sleep_interval) {
-            $pre_execution_sleep_interval   = $max_pre_execution_sleep_interval;
-            $pre_execution_sleep_rand   = $pre_execution_sleep_interval;
-            $pre_execution_sleep_cmd    = "sleep " . $pre_execution_sleep_rand;
+            $pre_exec_sleep_interval   = $max_pre_execution_sleep_interval;
         }
         else {  
-            $pre_execution_sleep_interval   = ($max_pre_execution_sleep_interval - $min_pre_execution_sleep_interval);
-            $pre_execution_sleep_rand       = int(rand($pre_execution_sleep_interval));
-            $pre_execution_sleep_cmd    = "sleep " . ($min_pre_execution_sleep_interval + $pre_execution_sleep_rand);
+            my $random_adjustment = int(rand($max_pre_execution_sleep_interval - $min_pre_execution_sleep_interval));
+            $pre_exec_sleep_interval = ($min_pre_execution_sleep_interval + $random_adjustment);
         }
 
         if($debug) {
-            my $debug_num_secs_to_sleep = $pre_execution_sleep_cmd;
-            $debug_num_secs_to_sleep =~ s/sleep //g;
-            print "PRE-EXECUTE SLEEP (" . $debug_num_secs_to_sleep . " secs).\n";
+            my_print ($current_sub, "PRE-EXECUTE SLEEP (" . $pre_exec_sleep_interval . " secs).\n");
         }
 
-        system($pre_execution_sleep_cmd);
+        system("sleep " . $pre_exec_sleep_interval);
     }
 
     if ($debug) { print "Type: $query_type\nID: $query_id\nSQL: $sql\n"; }
@@ -921,7 +963,7 @@ sub run_query {
         $elapsed_secs = ($num_simulation_ticks - ($end_simulation_ticks - get_epoch_seconds()));
 
         if($debug) {
-            print "Elapsed secs (Launch): $elapsed_secs and staggered_launch_window_secs: $staggered_launch_window_secs \n";
+            my_print ($current_sub, "Elapsed secs (Launch): $elapsed_secs and staggered_launch_window_secs: $staggered_launch_window_secs");
         }
 
         # Change the launch flag to (S)taggered launch window if the query is
@@ -929,7 +971,7 @@ sub run_query {
         if($elapsed_secs < $staggered_launch_window_secs) {
             $launch_flag = "S";
 
-            if($debug) { print "Setting launch flag to $launch_flag \n"; }
+            if($debug) { my_print ($current_sub, "Setting launch flag to $launch_flag"); }
         }
     }
 
@@ -972,8 +1014,8 @@ sub run_query {
     # Recompute the elapsed seconds.
     $elapsed_secs = ($num_simulation_ticks - ($end_simulation_ticks - get_epoch_seconds()));
 
-    if($debug) { print "Elapsed secs (Complete): $elapsed_secs" .
-                       " and staggered_launch_window_secs: $staggered_launch_window_secs \n"; }    
+    if($debug) { my_print ($current_sub, "Elapsed secs (Complete): $elapsed_secs" .
+                       " and staggered_launch_window_secs: $staggered_launch_window_secs"); }
        
     # Label the query with a flag for when it completed:
     #   (S)taggered launch window, (N)ormal execution phase,
@@ -986,14 +1028,14 @@ sub run_query {
     # completes in that window.
     if(get_epoch_seconds() > $end_simulation_ticks) { $complete_flag = "A"; }
 
-    if($debug) { print "Setting complete flag to $complete_flag \n"; }
+    if($debug) { my_print ($current_sub, "Setting complete flag to $complete_flag"); }
 
     $output = $output . "\t" . $num_rows . "\t" . "1" . "\t" . $query_runtime . "\t" .
               $launch_flag . "\t" . $complete_flag . "\t"  . $run_status . "\t" .
               $right_now . "\t" . "$nickname\n";
 
     # Open the log file for appending.
-    open(LOG,">>$log_filename") or die "Can't open log file $log_filename for writing $!\n";
+    open(LOG,">>$log_filename") or die $current_sub . ": Can't open log file $log_filename for writing $!\n";
 
     print LOG $output;
 
@@ -1003,35 +1045,30 @@ sub run_query {
     # If requested, sleep for an interval after executing the query.       
     if($max_post_execution_sleep_interval > 0) {
 
-        my $post_execution_sleep_interval;
-        my $post_execution_sleep_rand;
-        my $post_execution_sleep_cmd;
-                
+        my $post_exec_sleep_interval;
+
         # If the min and max values are the same, sleep for a static (not random amount) of time.
-        if($min_post_execution_sleep_interval    == $max_post_execution_sleep_interval) {
-            $post_execution_sleep_interval   = $max_post_execution_sleep_interval;
-            $post_execution_sleep_rand       = $post_execution_sleep_interval;
-            $post_execution_sleep_cmd        = "sleep " . $post_execution_sleep_rand;
+        if($min_post_execution_sleep_interval == $max_post_execution_sleep_interval) {
+            $post_exec_sleep_interval = $max_post_execution_sleep_interval;
         }
         else {
-            $post_execution_sleep_interval   = ($max_post_execution_sleep_interval - $min_post_execution_sleep_interval);
-            $post_execution_sleep_rand       = int(rand($post_execution_sleep_interval));
-            $post_execution_sleep_cmd        = "sleep " . ($min_post_execution_sleep_interval + $post_execution_sleep_rand);
+            $random_adjustment = int(rand($max_post_execution_sleep_interval
+                                          - $min_post_execution_sleep_interval));
+            $post_exec_sleep_interval = ($min_post_execution_sleep_interval + $random_adjustment);
         }
 
         if($debug) {
-            my $debug_num_secs_to_sleep = $post_execution_sleep_cmd;
-            $debug_num_secs_to_sleep =~ s/sleep //g;
-            print "POST-EXECUTE SLEEP (" . $debug_num_secs_to_sleep . " secs).\n";
+            my_print ($current_sub, "POST-EXECUTE SLEEP (" . $post_exec_sleep_interval . " secs)");
         }
-                
-        system($post_execution_sleep_cmd);
+
+        system("sleep " . $post_exec_sleep_interval);
     }
 
-}
+} # run_query
 
 
 sub get_current_datetime {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my $retval;
 
     # Perhaps no need for nanoseconds on the human-readable date, but add it anyway.
@@ -1042,10 +1079,11 @@ sub get_current_datetime {
     $retval =~ s/\.N//g;
     
     return $retval;
-}
+} # get_current_datetime
 
 
 sub get_epoch_seconds {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my $retval;
     my $cmd;
 
@@ -1065,10 +1103,11 @@ sub get_epoch_seconds {
     chomp $retval;  
     
     return $retval;
-}
+} # get_epoch_seconds
 
 
 sub get_seconds {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my $retval;
     my $cmd;
 
@@ -1087,10 +1126,11 @@ sub get_seconds {
     chomp $retval;  
     
     return $retval;
-}
+} # get_seconds
 
 
 sub create_pivoted_summary_report {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($summary_filename) = @_;
 
     my %answer;
@@ -1114,7 +1154,7 @@ sub create_pivoted_summary_report {
     # 14 RunNickname
 
     # Open the file twice to avoid having to store the numbers in an array in the hash... a little lazy.
-    open(SUMM_DATA_IN, $summary_filename) or die "Can't open the summary data (IN) $summary_filename $!\n";
+    open(SUMM_DATA_IN, $summary_filename) or die $current_sub . ": Can't open the summary data (IN) $summary_filename $!\n";
     while(<SUMM_DATA_IN>) {
         next if $_ =~ /Q/;
     
@@ -1194,7 +1234,7 @@ sub create_pivoted_summary_report {
     my $pivot_filename = $summary_filename;
     $pivot_filename =~ s/\.dat/_pivot.dat/g;
 
-    open(OUTPUT, ">$pivot_filename") or die "Can't open the pivot output filename $pivot_filename $!\n";
+    open(OUTPUT, ">$pivot_filename") or die $current_sub . ": Can't open the pivot output filename $pivot_filename $!\n";
 
     print OUTPUT "Query\tSuccess\tNumRuns\tMeanRuntime\tMinRuntime\tMaxRuntime\tStdDev\tRelativeDev\tRunName\tRunNickname\n";
 
@@ -1214,12 +1254,14 @@ sub create_pivoted_summary_report {
 
     close(OUTPUT);
 
-    print "\nA pivoted version of the summary file is located here: " . $pivot_filename . "\n\n";
+    my_print ($current_sub, "A pivoted version of the summary file is located here: " . $pivot_filename);
 
-}
+} # create_pivoted_summary_report 
 
 
 sub clean_up {
+
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
 
     # Remove any runs that started too late, and should not be counted.
     my $delete_late_runs_cmd = "rm -f $query_log_directory" . "log__*";
@@ -1235,7 +1277,7 @@ sub clean_up {
         my $source_filename = $exec_summary_directory . "execution_summary_" . $right_now . ".dat";
         my $sql_cmd = "\\COPY $output_schema.$output_table FROM \'$source_filename\' HEADER NULL AS \'NULL\'";
         my $sql_cmd_status = run_sql($sql_cmd);
-        print "COPY: $sql_cmd\n";
+        my_print ($current_sub, "COPY: $sql_cmd");
 
 # If resource groups are being used, save that info also
         if (length($output_rg_cfg_table) > 0) {
@@ -1248,15 +1290,17 @@ sub clean_up {
                                   , g.*
                              from gp_toolkit.gp_resgroup_config g";
             $sql_cmd_status = run_sql($sql_cmd);
-            print "INSERT: $sql_cmd\n";
+            my_print ($current_sub, "INSERT: $sql_cmd");
         }
     }
 
     # Put a header row into the file.
     my $header_filename = $exec_summary_directory . "execution_summary_" . $right_now . ".dat";
     my $header_filename_temp = $exec_summary_directory . "execution_summary_" . $right_now . ".datTEMP";
-    open(SUMMARY_NEW,">$header_filename_temp") or die "Can't open log file $header_filename_temp for writing $!\n";
-    open(SUMMARY_OLD, $header_filename) or die "Can't open the summary file for reading $header_filename $!\n";
+    open(SUMMARY_NEW,">$header_filename_temp")
+        or die $current_sub . ": Can't open log file $header_filename_temp for writing $!\n";
+    open(SUMMARY_OLD, $header_filename)
+        or die $current_sub . ": Can't open the summary file for reading $header_filename $!\n";
     
     print SUMMARY_NEW   "QueryType\t".
                 "QueryID\t" .
@@ -1283,20 +1327,20 @@ sub clean_up {
     my $rename_cmd = "mv $header_filename_temp $header_filename";
     system($rename_cmd);
 
-    print "All log files have been consolidated into summary file here: " . 
-        $exec_summary_directory .  "execution_summary_" . $right_now . ".dat\n";
-
+    my_print ($current_sub, "All log files have been consolidated into summary file here: " . 
+        $exec_summary_directory .  "execution_summary_" . $right_now . ".dat");
 
     create_pivoted_summary_report($header_filename);
 
     exit 1;
-}
+} # clean_up
 
 sub run_sql {
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my ($sql_string) = @_;
     my $retval;
 
-    if($debug) { print "Entering run_sql: SQL command:\n$sql_string\n"; }
+    if($debug) { my_print ($current_sub, "Entering run_sql: SQL command:\n$sql_string"); }
 
     my $cmd = "psql -v ON_ERROR_STOP\=1 -d $db_name -c \"$sql_string;\"";
 
@@ -1307,21 +1351,22 @@ sub run_sql {
     if($retval == 0) { $retval = 1; }
     if($retval == 3) { $retval = 0; }
 
-    if($debug) { print "Leaving run_sql: retval = $retval.\n"; }
+    if($debug) { my_print ($current_sub, "Leaving run_sql: retval = $retval"); }
     
     return $retval;
-}
+} # run_sql
 
 
 sub prepare_output_schema_and_tables {
     
+    my $current_sub = (split(/::/,(caller(0))[3]))[-1];
     my $status = 1;
 
-    if($debug) { print "Entering prepare_output_schema_and_tables: variable output_to_db = $output_to_db.\n"; }
+    if($debug) { my_print ($current_sub, "output_to_db = $output_to_db"); }
 
     if($output_to_db) {
         if($debug) {
-            print "Configuring table '$output_schema.$output_table' for test results loading.\n";
+            my_print ($current_sub, "Configuring table '$output_schema.$output_table' for test results loading");
         }
 
         # If the schema doesn't exist, create it.
@@ -1363,25 +1408,25 @@ sub prepare_output_schema_and_tables {
         }
     }
     else {
-        if($debug) { print "We don't need to config the schema and table.\n"; }
+        if($debug) { my_print ($current_sub, "We don't need to config the schema and table."); }
     }
 
-    if($debug) { print "Leaving prepare_output_schema_and_tables: status = $status\n"; }
+    if($debug) { my_print ($current_sub, "status = $status"); }
     return $status;
 
-}
+} # prepare_output_schema_and_tables 
 
+my $current_sub = "main";
 
 ################################################################################
+# Main loop ####################################################################
 ################################################################################
-################################################################################
-# Main loop:
 
 # Check for the existance of the config file on the command line.
 check_config_file();
 
 # Process the configuration file.
-process_config_file(); # This is the new version.
+process_config_file();
 
 # Check to make sure that all the required directories are in place.
 verify_setup();
@@ -1423,10 +1468,9 @@ while(($current_simulation_ticks < $end_simulation_ticks) && ($end_simulation_ea
     my $print_friendly_secs = get_seconds();
 
     if(!$has_printed_status{$print_friendly_secs}) { 
-        print "\nBeginning simulation quanta " . 
-            #($num_simulation_ticks + ($current_simulation_ticks - $end_simulation_ticks)) . 
+        my_print ($current_sub, "Beginning simulation quanta " . 
             ($num_simulation_ticks + ($print_friendly_secs - $print_friendly_end_secs)). 
-            " of $num_simulation_ticks ticks.\n";
+            " of $num_simulation_ticks ticks.");
         $has_printed_status{$print_friendly_secs} = 1;
 
         # Wrap this in a mod() call to output the incremental status.
@@ -1439,7 +1483,7 @@ while(($current_simulation_ticks < $end_simulation_ticks) && ($end_simulation_ea
     # Maintain a certain number of running jobs.
     while (keys %pids < $tot_queries) {
 
-        if($debug) { print "There are " . keys(%pids) . " pids of $tot_queries\n"; }
+        if($debug) { my_print ($current_sub, "There are " . keys(%pids) . " pids of $tot_queries"); }
 
         $counter++;
         $job_run_counter++;
@@ -1454,12 +1498,12 @@ while(($current_simulation_ticks < $end_simulation_ticks) && ($end_simulation_ea
         if($reload_tot_queries) { 
             my $pre_tot_queries = $tot_queries;
             $tot_queries = display_query_mix(0); 
-            if($debug) { print "Reloading tot_queries. OLD: $pre_tot_queries NEW: $tot_queries \n"; }
+            if($debug) { my_print ($current_sub, "Reloading tot_queries. OLD: $pre_tot_queries NEW: $tot_queries"); }
         }
 
         # The resource allocation queue is full, sleep then try again.
         if(!$select_status) { 
-            print "The queue is full: No next query chosen COUNTER $counter \n"; 
+            my_print ($current_sub, "The queue is full: No next query chosen:  COUNTER $counter"); 
             sleep 5;
         }
 
@@ -1467,7 +1511,7 @@ while(($current_simulation_ticks < $end_simulation_ticks) && ($end_simulation_ea
         my ($query_type, $query_id, $sql, $next_pid, $found_next_query) = start_next_query();
 
         # Fork call.
-        die "could not fork" unless defined(my $pid = fork);
+        die $current_sub . ": could not fork" unless defined(my $pid = fork);
 
         # The PARENT registers the process on the PIDS hash for maintaining the correct number of jobs.
         if ($pid) {
@@ -1496,49 +1540,51 @@ while(($current_simulation_ticks < $end_simulation_ticks) && ($end_simulation_ea
         my $found_pid = complete_query($rc,$query_type);
         if($found_pid) {
             # pid successfully removed.
-            if($debug) { print "\tCOMPLETE:\t(Complete) pid $rc.\n"; }
+            if($debug) { my_print ($current_sub, "COMPLETE:\t(Complete) pid $rc"); }
         }
         else {
-            print "***** Warning: Could not find Running pid $rc to complete.\n";
+            my_print ($current_sub, "***** Warning: Could not find Running pid $rc to complete.");
         }
-        if($debug) { print "\tEND:\t\t(Finalize) Removing " . $rc . "(" . $pid . ").\n"; }
+        if($debug) { my_print ($current_sub, "END:\t(Finalize) Removing " . $rc . "(" . $pid . ")"); }
     }
 
-}
+} # end while(run simulation)
 
 
 if($end_simulation_early) {
     if(-e $kill_full_filename) {
-        print "\n*** Kill file detected ($kill_full_filename), exiting early.\n";
+        my_print ($current_sub, "*** Kill file detected ($kill_full_filename), exiting early.");
     }
     else {
-        print "\n*** The maximum number of executions per query has been reached, exiting early.\n";
+        my_print ($current_sub, "*** The maximum number of executions per query has been reached, exiting early.");
     }
 }
 else {
-    print "\n*** The test window is complete.\n";
+    my_print ($current_sub, "*** The test window is complete.");
 }
-print " There are still " . keys(%pids) . " queries executing.\n";
+my_print ($current_sub, "There are still " . keys(%pids) . " queries executing.");
 
 # Wait for the stragglers to complete.
 while(keys(%pids) > 0) {
     my $pid = waitpid -1, WNOHANG;
         
     if ($pid > 0) {
-    my $query_type = $pids{$pid};
-    delete $pids{$pid};
-    my $rc = $? >> 8;
-    my $found_pid = complete_query($rc,$query_type);
-    if($found_pid) {
-        # pid successfully removed
-        if($debug) { print "\tCOMPLETE:\t(Complete) pid $rc.\n"; }
-    }
-    else { print "****** Warning: Could not find Running pid $rc to complete.\n"; }
-    if($debug) { print "\tEND:\t\t(Finalize) Removing " . $rc . "(" . $pid . ").\n"; }
+        my $query_type = $pids{$pid};
+        delete $pids{$pid};
+        my $rc = $? >> 8;
+        my $found_pid = complete_query($rc,$query_type);
+        if($found_pid) {
+            # pid successfully removed
+            if($debug) { my_print ($current_sub, "COMPLETE:\t(Complete) pid $rc"); }
+        }
+        else {
+            my_print ($current_sub, "****** Warning: Could not find Running pid $rc to complete.");
+        }
+        if($debug) { my_print ($current_sub, "END:\t(Finalize) Removing " . $rc . "(" . $pid . ")"); }
     }
 }
 
-print "\n*** The last query has completed. Simulation ended.\n";
+my_print ($current_sub, "*** The last query has completed. Simulation ended.");
 
 clean_up();
 

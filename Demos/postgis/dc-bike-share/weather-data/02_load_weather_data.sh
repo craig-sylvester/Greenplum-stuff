@@ -36,8 +36,11 @@ EOF
 echo "Load the weather data to our newly created table"
 psql -e -h ${PGHOST:-127.0.0.1} -U ${PGUSER:-$USER} -d ${PGDATABASE:-$USER} -c "\copy ${SCHEMA}.${LOAD_TABLE} (hourly_weather) from './${WD_FILE}.dat'"
 
-echo "Create a VIEW to make it easier to query the data."
-echo "A database table is created from the view for comparing runtimes in one example query."
+echo << EOF
+Create a VIEW to make it easier to query the data.
+In addition, a database table is created from the view
+for comparing runtimes in one example query.
+EOF
 
 psql -e -h ${PGHOST:-127.0.0.1} -U ${PGUSER:-$USER} -d ${PGDATABASE:-$USER} << EOF
 DROP VIEW IF EXISTS ${SCHEMA}.${VIEW} ;
@@ -53,6 +56,7 @@ SELECT
 FROM ${SCHEMA}.${LOAD_TABLE}
 ;
 
+DROP TABLE IF EXISTS ${SCHEMA}.${TABLE};
 CREATE TABLE ${SCHEMA}.${TABLE} AS SELECT * from ${SCHEMA}.${VIEW}
 -- DISTRIBUTED RANDOMLY
 ;
