@@ -46,13 +46,13 @@ psql -e -h ${PGHOST:-127.0.0.1} -U ${PGUSER:-$USER} -d ${PGDATABASE:-$USER} << E
 DROP VIEW IF EXISTS ${SCHEMA}.${VIEW} ;
 CREATE VIEW ${SCHEMA}.${VIEW} AS
 SELECT
-   cast (hourly_weather->>'time_local' as timestamp)           as time_local,
-   cast (hourly_weather->>'temperature' as float)              as temp_celsius,
-   cast (hourly_weather->>'temperature' as float) * 1.8 + 32   as temp_fahrenheit,
-   cast (hourly_weather->>'precipitation' as float)            as precipitation_mm,
-   cast (hourly_weather->>'windspeed' as float)                as windspeed_km_per_hr,
-   cast (hourly_weather->>'snowdepth' as float)                as snowdepth_mm,
-   cast (hourly_weather->>'humidity' as int)                   as humidity
+   cast (hourly_weather->>'time' as timestamp)          as time_local,
+   cast (hourly_weather->>'temp' as float)              as temp_celsius,
+   cast (hourly_weather->>'temp' as float) * 1.8 + 32   as temp_fahrenheit,
+   cast (hourly_weather->>'prcp' as float)              as precipitation_mm,
+   cast (hourly_weather->>'wspd' as float)              as windspeed_km_per_hr,
+   cast (hourly_weather->>'snow' as float)              as snowdepth_mm,
+   cast (hourly_weather->>'rhum' as int)                as humidity
 FROM ${SCHEMA}.${LOAD_TABLE}
 ;
 

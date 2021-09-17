@@ -2,8 +2,8 @@
 
 source ./dcbikeshare_variables.sh
 
-if [[ ${USER} != "gpadmin" ]] || [[ ${USER} != "pivotal" ]]; then
-    echo "This script must be run by gpadmin"
+if [[ ${USER} != "gpadmin" ]] && [[ ${USER} != "pivotal" ]]; then
+    echo "This script must be run by gpadmin or pivotal"
     exit 0
 fi
 [[ ${database} == "postgres" ]] && { echo "PXF not used for PostgreSQL"; exit 0; }

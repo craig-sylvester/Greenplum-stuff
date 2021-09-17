@@ -2,8 +2,8 @@
 
 set -u
 
-if [[ ${USER} != "gpadmin" ]] || [[ ${USER} != "pivotal" ]]; then
-    echo "This script must be run by gpadmin"
+if [[ ${USER} != "gpadmin" ]] && [[ ${USER} != "pivotal" ]]; then
+    echo "This script must be run by gpadmin or pivotal"
     exit 0
 fi
 
@@ -88,11 +88,18 @@ if [[ $exists != 1 ]]; then
     echo "**************************************************************************************"
 fi
 
-cat << EOF
+which jq &> /dev/null
+if [[ $? == 1 ]]; then
+    cat << EOF
+The JSON Query utility 'jq' is not in the PATH.
+It is used in the loading of the weather data.
+Install with your favorite package manager before proceeding.
+(ie. CENTOS/RHEL: sudo yum -y install jq)
+EOF
+fi
 
-The JSON Query utility 'jq' is used in the loading of the weather data. Install with your
-favorite package manager before loading the weather data.
-(ie. CENTOS/RHEL: sudo yum install jq -y)
+
+cat << EOF
 
 This demo makes use of a couple of PostgreSQL extensions and Greenplum's Web External Tables:
 1. PostGIS: Used for both Greenplum and PostgreSQL backing databases.
