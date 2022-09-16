@@ -1,0 +1,61 @@
+No IO activity is allowed on GPDB during running drop mirror procedure.
+  1. gpstop
+  2. gpstart -m
+ 
+template1=# begin;
+BEGIN
+Time: 0.502 ms
+ddata=# SELECT * from gp_segment_configuration;
+dbid | content | role | preferred_role | mode | status | port  | hostname | address | replication_port | san_mounts 
+------+---------+------+----------------+------+--------+-------+----------+---------+------------------+------------
+    1 |      -1 | p    | p              | s    | u      |  5438 | deep     | deep    |                  | 
+    2 |       0 | p    | p              | s    | u      | 53000 | deep     | deep    |            62000 | 
+    3 |       1 | p    | p              | s    | u      | 53001 | deep     | deep    |            62001 | 
+    4 |       0 | m    | m              | s    | u      | 63000 | deep     | deep    |            61000 | 
+    5 |       1 | m    | m              | s    | u      | 63001 | deep     | deep    |            61001 | 
+(5 rows)
+Time: 0.904 ms
+
+template1=# SELECT * from pg_filespace_entry;
+fsefsoid | fsedbid |            fselocation             
+----------+---------+------------------------------------
+     3052 |       1 | /Users/dchaudhary/4111/data/main-1
+     3052 |       2 | /Users/dchaudhary/4111/prim/main0
+     3052 |       3 | /Users/dchaudhary/4111/prim/main1
+     3052 |       4 | /Users/dchaudhary/4111/mirr/main0
+     3052 |       5 | /Users/dchaudhary/4111/mirr/main1
+(5 rows)
+Time: 0.746 ms
+
+template1=# SELECT * from gp_fault_strategy;
+fault_strategy 
+----------------
+ f
+(1 row)
+Time: 0.494 ms
+
+template1=# UPDATE gp_fault_strategy set fault_strategy='n';
+UPDATE 1
+
+template1=# DELETE FROM gp_segment_configuration where role='m';
+DELETE 2
+
+template1=# DELETE FROM pg_filespace_entry where fsedbid in (4,5); -- NOTE: All mirror related entries has to be removed.
+DELETE 2
+
+template1=# commit;
+COMMIT
+
+template1=# select * from gp_persistent_reset_all();
+
+template1=# select * from gp_persistent_build_all(false);
+   3. gpstop –m
+   4. gpstart 
+   5. In utility mode you have to connect to each primary segment and run
+        template1=# select * from gp_persistent_reset_all();
+        template1=# select * from gp_persistent_build_all(true);
+   6. gpstop –a
+   7. gpstart –a
+   8. gpcheckcat to ensure consistency
+   9. IO activity is allowed on GPDB
+  10. Mirror directories can be removed 
