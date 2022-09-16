@@ -81,7 +81,7 @@ EOF
 
 chmod +x ${get_metadata_script}
 
-exists=$(psql -At -d $demo_db -c "select 1 from pg_tables where tablename = 'spatial_ref_sys'")
+exists=$(psql -qAt -d $demo_db -c "select 1 from pg_tables where tablename = 'spatial_ref_sys'")
 if [[ $exists != 1 ]]; then
     echo "** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION ***** CAUTION *****"
     echo "**** PostGIS is not loaded in the database. Install the package before preceding. ****"
